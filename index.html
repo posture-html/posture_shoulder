@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>駝背體態偵測工具</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      margin: 0;
+      background-color: #f4f4f4;
+      text-align: center;
+    }
+    h2 {
+      color: #333;
+    }
+    video, canvas, img {
+      max-width: 100%;
+      height: auto;
+      margin-top: 10px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    button, input[type="file"] {
+      margin: 10px auto;
+      padding: 12px 18px;
+      font-size: 1rem;
+      border-radius: 6px;
+      border: none;
+      background-color: #4CAF50;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    #submitBtn {
+      background-color: #2196F3;
+    }
+    #submitBtn:hover {
+      background-color: #1976D2;
+    }
+    #result, #connectionResult {
+      margin-top: 20px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    /* ✅ 新增：統一按鈕樣式 */
+    .action-button {
+      flex: 1 1 45%;
+      min-width: 140px;
+      max-width: 180px;
+      height: 48px;
+      background-color: #4CAF50;
+      color: white;
+      padding: 12px 16px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      text-decoration: none;
+    }
+
+    .action-button:hover {
+      background-color: #45a049;
+    }
+
+    @media screen and (min-width: 768px) {
+      body {
+        max-width: 700px;
+        margin: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h2>📷 高低肩偵測工具</h2>
+
+  <button id="switchCamera">🔄 切換鏡頭</button><br>
+  <video id="video" autoplay playsinline></video><br>
+
+   <!-- ✅ 拍照與選圖按鈕：左右排列 + 寬度一致 -->
+  <div style="display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 16px; flex-wrap: wrap;">
+    <button id="snap" class="action-button">
+      📸 拍照
+    </button>
+
+    <label for="uploadImage" class="action-button">
+      📁 選擇圖片
+    </label>
+  </div>
+
+  <!-- 隱藏 input -->
+  <input type="file" id="uploadImage" accept="image/*" style="display:none;">
+
+  <canvas id="canvas" style="display:none;"></canvas>
+  <img id="preview" alt="圖片預覽" /><br>
+
+  <button id="submitBtn">🚀 上傳圖片</button>
+
+  <div id="result"></div>
+
+  <button onclick="testConnection()">🔗 測試後端連線</button>
+  <p id="connectionResult"></p>
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const preview = document.getElementById('preview');
+    const snapBtn = document.getElementById('snap');
+    const submitBtn = document.getElementById('submitBtn');
+    const switchCameraBtn = document.getElementById('switchCamera');
+    const uploadInput = document.getElementById('uploadImage');
+    const resultBox = document.getElementById('result');
+
+    let currentStream = null;
+    let useFrontCamera = true;
+    let imageBlob = null;
+
+    // ✅ 初始化頁面（重新啟動鏡頭、清除畫面）
+    function resetPage() {
+      console.log("🔄 重設頁面中...");
+      preview.src = "";
+      resultBox.innerHTML = "";
+      imageBlob = null;
+      startCamera();
+    }
+
+    // 啟動攝影機
+    async function startCamera() {
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+      }
+      const constraints = {
+        video: {
+          facingMode: useFrontCamera ? 'user' : 'environment'
+        }
+      };
+      try {
+        currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = currentStream;
+      } catch (err) {
+        alert("❌ 攝影機錯誤：" + err.message);
+      }
+    }
+
+    switchCameraBtn.onclick = () => {
+      useFrontCamera = !useFrontCamera;
+      startCamera();
+    };
+
+    startCamera();
+
+    // 拍照
+    snapBtn.onclick = () => {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      preview.src = canvas.toDataURL('image/png');
+
+      canvas.toBlob(blob => {
+        imageBlob = blob;
+
+        // ✅ 等到圖片準備好後再捲動到上傳按鈕
+        document.getElementById('submitBtn').scrollIntoView({ behavior: 'smooth' });
+        }, 'image/png');
+    };
+
+
+    // 相簿選圖
+    uploadInput.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          preview.src = e.target.result;
+          // ✅ 等到圖片完全載入並渲染後再滾動
+          preview.onload = function() {
+            setTimeout(() => {
+              document.getElementById('submitBtn').scrollIntoView({ behavior: 'smooth' });
+            }, 100);
+          };
+        };
+        reader.readAsDataURL(file);
+        imageBlob = file;
+      }
+    };
+
+    // 上傳圖片
+    submitBtn.onclick = () => {
+      if (!imageBlob) {
+        alert("請先拍照或選擇圖片！");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', imageBlob, 'upload.png');
+
+      fetch('https://pose-app-964k.onrender.com/predict/shoulder', {
+        method: 'POST',
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          const resultMessage = `✅ 預測結果：${data.result}`;
+
+          // 顯示結果
+          resultBox.innerHTML = `
+            ${resultMessage}<br><br>
+            📱 請點選手機「返回鍵」回到 App<br>
+            ⏳ 5 秒後畫面將自動初始化
+          `;
+
+          alert(`${resultMessage}\n\n📱 請點選手機「返回鍵」回到 App`);
+
+          // 5 秒後自動清空畫面
+          setTimeout(resetPage, 5000);
+
+        } else if (data.error) {
+          const errMsg = "❌ 預測錯誤：" + data.error;
+          resultBox.innerHTML = errMsg;
+          alert(errMsg);
+        } else {
+          const unknown = "⚠️ 未知錯誤：" + JSON.stringify(data);
+          resultBox.innerHTML = unknown;
+          alert(unknown);
+        }
+      })
+      .catch(err => {
+        const msg = "❌ 請求失敗：" + err.message;
+        resultBox.innerHTML = msg;
+        alert(msg);
+      });
+    };
+
+    // 測試後端連線
+    function testConnection() {
+      const result = document.getElementById("connectionResult");
+      result.innerText = "連線中...";
+      fetch("https://pose-app-964k.onrender.com")
+        .then(response => {
+          if (!response.ok) throw new Error("連線失敗");
+          return response.json();
+        })
+        .then(data => {
+          result.innerText = "✅ 成功連線後端：" + data.message;
+        })
+        .catch(error => {
+          result.innerText = "❌ 無法連線後端：" + error.message;
+        });
+    }
+  </script>
+
+</body>
+</html>
