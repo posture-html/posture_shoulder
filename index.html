@@ -228,10 +228,10 @@
           const label = labelMap[data.result] || data.result;
           let resultMessage = `✅ 預測結果：${label}<br><br>`;
 
-          if (data.result === "normal") {
+          if (data.result === "shoulder_normal") {
             resultMessage += `
               🎉 您的體態判斷為正常，目前無需特別訓練計畫。<br><br>
-              📱 若您仍希望進行姿勢改善練習，也可在返回 App 後輸入「駝背」取得相關計畫。
+              📱 若您仍希望進行姿勢改善練習，也可在返回 App 後輸入「高低肩」取得相關計畫。
             `;
           } else {
             resultMessage += `
@@ -241,10 +241,10 @@
 
           resultBox.innerHTML = resultMessage;
           
-          if (data.result === "normal") {
-            alert(`✅ 預測結果：正常\n\n 您的體態判斷為正常，目前無需特別訓練計畫。\n 若您仍希望進行姿勢改善練習，也可在返回 App 後輸入「高低肩」取得相關計畫`);
+          if (data.result === "shoulder_normal") {
+            alert(`✅ 預測結果：肩膀正常\n\n 您的體態判斷為正常，目前無需特別訓練計畫。\n 若您仍希望進行姿勢改善練習，也可在返回 App 後輸入「高低肩」取得相關計畫`);
           } else {
-            alert(`✅ 預測結果：駝背\n\n 請點選手機「返回鍵」回到 App 輸入偵測結果`);
+            alert(`✅ 預測結果：高低肩\n\n 請點選手機「返回鍵」回到 App 輸入偵測結果`);
           }
 
           // 10 秒後自動清空畫面
