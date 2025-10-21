@@ -87,7 +87,6 @@
 
   <p style="font-size: 0.85rem; color: #666; margin-bottom: 6px; text-align: center;">
   本網頁為【AI輔助健康姿勢偵測與矯正系統】偵測功能介面<br>
-  以訓練模型分析照片進行體態偵測
   </p>
 
   <h2>📷 駝背偵測工具</h2>
@@ -112,7 +111,6 @@
   <canvas id="canvas" style="display:none;"></canvas>
   <img id="preview" alt="圖片預覽" /><br>
 
-  <button id="poseBtn">🦴 產生骨架圖</button>
   <button id="submitBtn">🚀 上傳圖片</button>
 
   <div id="result"></div>
@@ -134,7 +132,7 @@
   // ✅ 抽出 API 位置（本機/ ngrok / Render 三選一）
   // const API_BASE = "http://127.0.0.1:5000";
   // const API_BASE = "https://<你的-ngrok>.ngrok-free.app";
-  const API_BASE = "http://127.0.0.1:5000";
+  const API_BASE = "https://mammary-overwidely-braylen.ngrok-free.dev";
 
   // （可選）要不要做成下拉選單切換端點？
   // 先固定用駝背：
@@ -190,59 +188,34 @@
   //  這裡改：解析 result 物件，而不是把 result 當字串
   submitBtn.onclick = async () => {
     if (!imageBlob) { alert("請先拍照或選擇圖片！"); return; }
-
-    const fd = new FormData();
-    fd.append('file', imageBlob, 'upload.png');
+  
+    // UI 提示
     resultBox.innerHTML = "偵測中，請稍後...";
-
+    submitBtn.disabled = true;
+  
     try {
-      const res = await fetch(`${API_BASE}${currentEndpoint}`, { method: 'POST', body: fd });
-      const ct = res.headers.get('content-type') || '';
+      // ---------- (1) 先要 JSON 指標 ----------
+      const fd1 = new FormData();
+      fd1.append('file', imageBlob, 'upload.png');
+  
+      const resJson = await fetch(`${API_BASE}${currentEndpoint}`, {
+        method: 'POST',
+        body: fd1
+      });
+  
+      const ct = resJson.headers.get('content-type') || '';
       if (!ct.includes('application/json')) {
-        const txt = await res.text();
-        throw new Error(`非 JSON 回應：${res.status} ${txt.slice(0,200)}`);
+        const txt = await resJson.text();
+        throw new Error(`非 JSON 回應：${resJson.status} ${txt.slice(0,200)}`);
       }
-      const data = await res.json();
-
+  
+      const data = await resJson.json();
       if (!data.success) {
         const msg = "❌ 預測失敗：" + (data.error || "未知錯誤");
         resultBox.innerHTML = msg;
         alert(msg);
         return;
       }
-
-  poseBtn.onclick = async () => {
-    if (!imageBlob) { alert("請先拍照或選擇圖片！"); return; }
-
-    // UI 鎖定
-    poseBtn.disabled = true;
-    poseBtn.textContent = "處理中…";
-    resultBox.textContent = "產生骨架圖中…";
-
-    try {
-      const fd = new FormData();
-      fd.append('file', imageBlob, 'upload.jpg');
-
-      // 後端回傳繪好骨架的圖片
-      const res = await fetch(`${API_BASE}/pose_img`, {
-        method: 'POST',
-        body: fd
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-      const blob = await res.blob();
-      if (preview.src) URL.revokeObjectURL(preview.src);
-      preview.src = URL.createObjectURL(blob);
-
-      resultBox.textContent = "已產生骨架圖";
-    } catch (err) {
-      resultBox.textContent = "產生失敗：" + err.message;
-      alert("產生骨架圖失敗：" + err.message);
-    } finally {
-      poseBtn.disabled = false;
-      poseBtn.textContent = "產生骨架圖";
-    }
-  };
 
       const r = data.result;
       // r.level 例如：正常 / 輕度駝背 / 重度駝背（或高低肩）
@@ -253,10 +226,10 @@
       const lines = [];
       if (r.side       !== undefined) lines.push(`面向：${r.side}`);
       if (r.level      !== undefined) lines.push(`等級：${r.level}`);
-      // if (r.score      !== undefined) lines.push(`分數：${r.score}`);
+      //if (r.score      !== undefined) lines.push(`分數：${r.score}`);
       if (r.hr         !== undefined) lines.push(`頭前傾比例：${r.hr}`);
       if (r.neck_angle !== undefined) lines.push(`頸部角度：${r.neck_angle}°`);
-      // if (r.spine_angle!== undefined) lines.push(`脊椎角度：${r.spine_angle}°`);
+      //if (r.spine_angle!== undefined) lines.push(`脊椎角度：${r.spine_angle}°`);
       if (r.kyphosis   !== undefined) lines.push(`脊柱後凸：${r.kyphosis}°`);
       if (r.higher     !== undefined) lines.push(`較高側：${r.higher}`);
       if (r.sl_ratio   !== undefined) lines.push(`肩膀高低差比例：${r.sl_ratio}`);
@@ -268,8 +241,18 @@
       // 可選：結果通知
       alert(`✅ 偵測完成：${r.level || '—'}`);
 
-      // 10 秒後重置
-      setTimeout(resetPage, 100000);
+      const fd2 = new FormData();
+      fd2.append('file', imageBlob, 'upload.jpg');
+  
+      const resImg = await fetch(`${API_BASE}/pose_img?mode=plain`, {
+        method: 'POST',
+        body: fd2
+      });
+      if (!resImg.ok) throw new Error(`骨架圖 HTTP ${resImg.status}`);
+  
+      const blob = await resImg.blob();
+      if (preview.src) URL.revokeObjectURL(preview.src);
+      preview.src = URL.createObjectURL(blob);
 
     } catch (err) {
       const msg = "❌ 請求失敗：" + err.message;
